@@ -1,0 +1,11 @@
+Reqirements
+===========
+
+ * Python 2.7
+ * mechanize
+ * BeautifulSoup
+
+Settings
+========
+
+See config.py

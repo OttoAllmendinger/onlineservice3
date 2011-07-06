@@ -1,0 +1,16 @@
+raise Exception("please edit config.py") # zeile loeschen
+
+# benutzername und passwort der hochschulseite
+qis_username = ""
+qis_password = ""
+
+# einstellungen fuer den mailtransfer
+smtp_server = "smtp.gmail.com:587"  # beispiel
+smtp_username = ""
+smtp_password = ""
+mail_sender = ""  # sollte das gleiche sein wie mail_recipient
+mail_recipient = "" #
+
+# sonstiges
+poll_interval = 60 * 10 # 10 minuten intervall
+examinfo_path = "examinfo.json"
