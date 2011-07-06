@@ -2,10 +2,10 @@ Reqirements
 ===========
 
  * Python 2.7
- * mechanize
- * BeautifulSoup
+ * mechanize 0.2.5
+ * BeautifulSoup 3.2.0
 
 Settings
 ========
 
-See config.py
+See config.py.default

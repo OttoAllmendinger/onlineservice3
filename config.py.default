@@ -1,4 +1,4 @@
-raise Exception("please edit config.py") # zeile loeschen
+# in config.py umbenennen
 
 # benutzername und passwort der hochschulseite
 qis_username = ""

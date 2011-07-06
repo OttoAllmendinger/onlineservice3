@@ -5,18 +5,27 @@ import json
 import time
 import smtplib
 
+from email.MIMEText import MIMEText
+from email.Header import Header
+from email.Utils import parseaddr, formataddr
+
 import mechanize
 from BeautifulSoup import BeautifulSoup
 
-import config
+try:
+  import config
+except ImportError:
+  raise Exception("Please edit config.py.default and save as config.py")
 
 _cache = False # debug
+
+qis_url = "https://qis2.hs-karlsruhe.de"
+os3_url = "http://www.github.com/OttoAllmendinger/onlineservice3"
 
 def get_infopage():
   if _cache:
     return open("cache.txt").read()
   else:
-    qis_url = "https://qis2.hs-karlsruhe.de"
     browser = mechanize.Browser()
     browser.set_handle_robots(False)
     browser.open(qis_url)
@@ -59,27 +68,33 @@ def print_diff(examinfo, diff):
 def examresult(exam):
   return ("Note " + exam['grade']) if exam['grade'] else exam['status']
 
-def get_maildata(exam):
-  return (u'\r\n'.join((
-      u"from: " + config.mail_sender,
-      u"subject: %s in %s" % (examresult(exam), exam['name']),
-      u"to: " + config.mail_recipient,
-      u"mime-version: 1.0",
-      u"content-type: text/html",
-      u"",
-      u"",
-      u"Klausurergebnis für \"%s\": <b>%s</b>" % (
-        exam['name'], examresult(exam))))).encode("utf8")
+def get_maildata(sender, recipient, subject, body):
+    # for python<2.7
+    # source: http://mg.pov.lt/blog/unicode-emails-in-python
+    sender_name, sender_addr = parseaddr(sender)
+    recipient_name, recipient_addr = parseaddr(recipient)
+    sender_name = str(Header(unicode(sender_name), 'utf8'))
+    recipient_name = str(Header(unicode(recipient_name), 'utf8'))
+    sender_addr = sender_addr.encode('ascii')
+    recipient_addr = recipient_addr.encode('ascii')
+    msg = MIMEText(body.encode('utf8'), 'html', 'utf8')
+    msg['From'] = formataddr((sender_name, sender_addr))
+    msg['To'] = formataddr((recipient_name, recipient_addr))
+    msg['Subject'] = Header(unicode(subject), 'utf8')
+    return msg.as_string()
 
 def send_email(examinfo, diff):
   session = smtplib.SMTP(config.smtp_server)
   session.starttls()
   session.login(config.smtp_username, config.smtp_password)
-  for e in diff:
-    session.sendmail(
+  for e in (examinfo[d] for d in diff):
+    data = get_maildata(
         config.mail_sender,
         config.mail_recipient,
-        get_maildata(examinfo[e]))
+        u"Note %(grade)s in %(name)s" % e,
+        (u"Klausurergebnis für %(name)s: <b>%(grade)s<b>" % e) +
+        ("<br><br><a href=\"%s\">HSKA Online-Service 2</a>" % qis_url))
+    session.sendmail(config.mail_sender, config.mail_recipient, data)
   session.quit()
 
 def load_examinfo():
@@ -112,3 +127,4 @@ if __name__=="__main__":
   while True:
     poll_and_notifiy()
     time.sleep(config.poll_interval)
+
