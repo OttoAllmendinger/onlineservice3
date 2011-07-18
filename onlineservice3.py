@@ -5,6 +5,8 @@ import json
 import time
 import smtplib
 
+from urllib2 import HTTPError
+
 from email.MIMEText import MIMEText
 from email.Header import Header
 from email.Utils import parseaddr, formataddr
@@ -15,7 +17,7 @@ from BeautifulSoup import BeautifulSoup
 try:
   import config
 except ImportError:
-  raise Exception("Please edit config.py.default and save as config.py")
+  raise Exception("Error importing config.py - see config.py.default")
 
 _cache = False # debug
 
@@ -66,7 +68,10 @@ def print_diff(examinfo, diff):
     print("%s: %s" % (examinfo[e]['name'], examinfo[e]['grade']))
 
 def examresult(exam):
-  return ("Note " + exam['grade']) if exam['grade'] else exam['status']
+  if exam['grade'].strip():
+    return "Note " + exam['grade']
+  else:
+    return exam['status']
 
 def get_maildata(sender, recipient, subject, body):
     # for python<2.7
@@ -88,11 +93,12 @@ def send_email(examinfo, diff):
   session.starttls()
   session.login(config.smtp_username, config.smtp_password)
   for e in (examinfo[d] for d in diff):
+    e['result'] = examresult(e)
     data = get_maildata(
         config.mail_sender,
         config.mail_recipient,
-        u"Note %(grade)s in %(name)s" % e,
-        (u"Klausurergebnis für %(name)s: <b>%(grade)s<b>" % e) +
+        u"Note %(result)s in %(name)s" % e,
+        (u"Klausurergebnis für %(name)s: <b>%(result)s<b>" % e) +
         ("<br><br><a href=\"%s\">HSKA Online-Service 2</a>" % qis_url))
     session.sendmail(config.mail_sender, config.mail_recipient, data)
   session.quit()
@@ -110,6 +116,9 @@ def save_examinfo(examinfo):
   json.dump(examinfo, f, indent=2)
   f.close()
 
+def log(msg):
+  print "%s: %s" % (time.asctime(), msg)
+
 def poll_and_notifiy():
   examinfo_old = load_examinfo()
   examinfo_new = poll_examinfo()
@@ -119,12 +128,25 @@ def poll_and_notifiy():
     if diff:
       print_diff(examinfo_new, diff)
       send_email(examinfo_new, diff)
-    print "%s: %d updates" % (time.asctime(), len(diff))
+    log("%d updates" % len(diff))
   else:
-    print "%s: init with %d exams" % (time.asctime(), len(examinfo_new))
+    log("init with %d exams" % len(examinfo_new))
 
 if __name__=="__main__":
   while True:
-    poll_and_notifiy()
+    try:
+      poll_and_notifiy()
+    except HTTPError, e:
+      if e.code == 503:
+        # happens between ~ 0:30 and 1:00
+        log("HTTP Reply 503: Online-Service 2 beauty sleep")
+      elif e.code == 502:
+        # happens every once in a while
+        log("HTTP Reply 502: Online-Service 2 expected failure")
+    except Exception, e:
+      log("Unexpected failure. Please report on %s "
+          "and include cache.txt" % os3_url)
+      raise
+
     time.sleep(config.poll_interval)
 
