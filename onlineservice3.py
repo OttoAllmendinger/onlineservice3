@@ -97,7 +97,7 @@ def send_email(examinfo, diff):
     data = get_maildata(
         config.mail_sender,
         config.mail_recipient,
-        u"Note %(result)s in %(name)s" % e,
+        u"%(result)s in %(name)s" % e,
         (u"Klausurergebnis für %(name)s: <b>%(result)s<b>" % e) +
         ("<br><br><a href=\"%s\">HSKA Online-Service 2</a>" % qis_url))
     session.sendmail(config.mail_sender, config.mail_recipient, data)
