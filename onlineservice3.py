@@ -4,6 +4,7 @@ import os
 import json
 import time
 import smtplib
+import traceback
 
 from urllib2 import HTTPError
 
@@ -88,10 +89,19 @@ def get_maildata(sender, recipient, subject, body):
     msg['Subject'] = Header(unicode(subject), 'utf8')
     return msg.as_string()
 
-def send_email(examinfo, diff):
+def send_emails(mail_data_list):
   session = smtplib.SMTP(config.smtp_server)
   session.starttls()
   session.login(config.smtp_username, config.smtp_password)
+  for data in mail_data_list:
+    session.sendmail(config.mail_sender, config.mail_recipient, data)
+  session.quit()
+
+def send_email(mail_data):
+  send_emails([mail_data])
+
+def send_examinfo_email(examinfo, diff):
+  mail_data_list = []
   for e in (examinfo[d] for d in diff):
     e['result'] = examresult(e)
     data = get_maildata(
@@ -100,8 +110,17 @@ def send_email(examinfo, diff):
         u"%(result)s in %(name)s" % e,
         (u"Klausurergebnis für %(name)s: <b>%(result)s<b>" % e) +
         ("<br><br><a href=\"%s\">HSKA Online-Service 2</a>" % qis_url))
-    session.sendmail(config.mail_sender, config.mail_recipient, data)
-  session.quit()
+    mail_data_list.append(data)
+  send_emails(mail_data_list)
+
+def send_exception_email(exception_with_traceback):
+  send_email(get_maildata(
+        config.mail_sender,
+        config.mail_recipient,
+        u"Fehler bei onlineservice3",
+        u"Fataler Fehler bei onlineservice3:<pre>\n" +
+        (u"%s" % exception_with_traceback) +
+        "\n\n</pre>Dienst wird beendet"))
 
 def load_examinfo():
   if not os.path.exists(config.examinfo_path):
@@ -122,15 +141,15 @@ def log(msg):
 def poll_and_notifiy():
   examinfo_old = load_examinfo()
   examinfo_new = poll_examinfo()
-  save_examinfo(examinfo_new)
   if examinfo_old:
     diff = set(examinfo_new) - set(examinfo_old)
     if diff:
       print_diff(examinfo_new, diff)
-      send_email(examinfo_new, diff)
+      send_examinfo_email(examinfo_new, diff)
     log("%d updates" % len(diff))
   else:
     log("init with %d exams" % len(examinfo_new))
+  save_examinfo(examinfo_new)
 
 if __name__=="__main__":
   while True:
@@ -146,6 +165,14 @@ if __name__=="__main__":
     except Exception, e:
       log("Unexpected failure. Please report on %s "
           "and include cache.txt" % os3_url)
+      traceback.print_exc()
+
+      try:
+        send_exception_email(traceback.format_exc())
+      except Exception, e:
+        print("Failed to send exception email")
+        traceback.print_exc()
+
       raise
 
     time.sleep(config.poll_interval)
