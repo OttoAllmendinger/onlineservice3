@@ -113,14 +113,16 @@ def send_examinfo_email(examinfo, diff):
     mail_data_list.append(data)
   send_emails(mail_data_list)
 
-def send_exception_email(exception_with_traceback):
+def send_exception_email(exception_with_traceback, error_count, fatal):
   send_email(get_maildata(
         config.mail_sender,
         config.mail_recipient,
         u"Fehler bei onlineservice3",
-        u"Fataler Fehler bei onlineservice3:<pre>\n" +
-        (u"%s" % exception_with_traceback) +
-        "\n\n</pre>Dienst wird beendet"))
+        (u"Fehler bei onlineservice3 (error_count=" + error_count + u")"
+          u"<hr><pre>\n"
+            + (u"%s" % exception_with_traceback)
+            + u"\n\n</pre><hr>"
+            + (u"Dienst wird beendet." if fatal else u""))))
 
 def load_examinfo():
   if not os.path.exists(config.examinfo_path):
@@ -152,9 +154,13 @@ def poll_and_notifiy():
   save_examinfo(examinfo_new)
 
 if __name__=="__main__":
+  error_count = 0
+  max_errors = 3
+
   while True:
     try:
       poll_and_notifiy()
+      error_count = 0
     except HTTPError, e:
       if e.code == 503:
         # happens between ~ 0:30 and 1:00
@@ -163,17 +169,22 @@ if __name__=="__main__":
         # happens every once in a while
         log("HTTP Reply 502: Online-Service 2 expected failure")
     except Exception, e:
+      error_count += 1
+      fatal = (error_count == max_errors)
+
       log("Unexpected failure. Please report on %s "
           "and include cache.txt" % os3_url)
       traceback.print_exc()
 
       try:
-        send_exception_email(traceback.format_exc())
+        send_exception_email(traceback.format_exc(), error_count, fatal)
       except Exception, e:
         print("Failed to send exception email")
         traceback.print_exc()
 
-      raise
+
+      if fatal:
+        raise
 
     time.sleep(config.poll_interval)
 
