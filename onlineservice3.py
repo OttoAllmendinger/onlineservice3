@@ -54,7 +54,7 @@ def poll_examinfo():
   for tr in grade_tbl.findAll("tr"):
     texts = [td.text.strip() for td in tr.findAll("td")]
     if texts:
-      exams[texts[0]] = {
+      info = {
         "name": texts[1],
         "sem": texts[2],
         "date": texts[3],
@@ -62,6 +62,9 @@ def poll_examinfo():
         "status": texts[5],
         "comment": texts[6],
         "tries": texts[7] }
+      key = str(hash((info['name'], info['date'], info['sem'], info['grade'])))
+      exams[key] = info
+
   return exams
 
 def print_diff(examinfo, diff):
@@ -140,26 +143,31 @@ def save_examinfo(examinfo):
 def log(msg):
   print "%s: %s" % (time.asctime(), msg)
 
-def poll_and_notifiy():
+def poll_and_notifiy(skip_mail):
   examinfo_old = load_examinfo()
   examinfo_new = poll_examinfo()
   if examinfo_old:
     diff = set(examinfo_new) - set(examinfo_old)
     if diff:
       print_diff(examinfo_new, diff)
-      send_examinfo_email(examinfo_new, diff)
+      if not skip_mail:
+        send_examinfo_email(examinfo_new, diff)
     log("%d updates" % len(diff))
   else:
     log("init with %d exams" % len(examinfo_new))
   save_examinfo(examinfo_new)
 
 if __name__=="__main__":
+  import sys
+
+  skip_mail = '--nomail' in sys.argv
+
   error_count = 0
   max_errors = 3
 
   while True:
     try:
-      poll_and_notifiy()
+      poll_and_notifiy(skip_mail)
       error_count = 0
     except HTTPError, e:
       if e.code == 503:
