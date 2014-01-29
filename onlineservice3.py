@@ -124,7 +124,7 @@ def send_exception_email(exception_with_traceback, error_count, fatal):
         config.mail_sender,
         config.mail_recipient,
         u"Fehler bei onlineservice3",
-        (u"Fehler bei onlineservice3 (error_count=" + error_count + u")"
+        (u"Fehler bei onlineservice3 (error_count=%i)" % error_count +
           u"<hr><pre>\n"
             + (u"%s" % exception_with_traceback)
             + u"\n\n</pre><hr>"
