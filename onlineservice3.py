@@ -149,15 +149,12 @@ def log(msg):
 def poll_and_notifiy(skip_mail):
   examinfo_old = load_examinfo()
   examinfo_new = poll_examinfo()
-  if examinfo_old:
-    diff = set(examinfo_new) - set(examinfo_old)
-    if diff:
-      print_diff(examinfo_new, diff)
-      if not skip_mail:
-        send_examinfo_email(examinfo_new, diff)
-    log("%d updates" % len(diff))
-  else:
-    log("init with %d exams" % len(examinfo_new))
+  diff = set(examinfo_new) - set(examinfo_old)
+  if diff:
+    print_diff(examinfo_new, diff)
+    if not skip_mail:
+      send_examinfo_email(examinfo_new, diff)
+  log("%d updates" % len(diff))
   save_examinfo(examinfo_new)
 
 if __name__=="__main__":
