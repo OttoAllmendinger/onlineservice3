@@ -50,6 +50,9 @@ def poll_examinfo():
     if any(th.text=="Note" for th in tbl.findAll("th")):
       grade_tbl = tbl
 
+  if grade_tbl==None:
+    return {}
+
   exams = {}
   for tr in grade_tbl.findAll("tr"):
     texts = [td.text.strip() for td in tr.findAll("td")]
